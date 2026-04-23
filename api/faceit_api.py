@@ -5,6 +5,7 @@ Handles all API calls to the FACEIT platform
 
 import os
 import aiohttp
+from typing import Optional
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -15,7 +16,7 @@ class FaceitAPI:
     
     def __init__(self):
         self.api_key = os.getenv('FACEIT_API_KEY')
-        self.base_url = "https://open.faceit.com/api/v4"
+        self.base_url = "https://open.faceit.com/data/v4"
         
         if not self.api_key:
             raise ValueError("FACEIT_API_KEY not found in .env file")
@@ -25,7 +26,7 @@ class FaceitAPI:
             "Accept": "application/json"
         }
     
-    async def _make_request(self, endpoint: str) -> dict:
+    async def _make_request(self, endpoint: str) -> Optional[dict]:
         """Make an async GET request to the FACEIT API"""
         url = f"{self.base_url}{endpoint}"
         
@@ -41,71 +42,73 @@ class FaceitAPI:
             print(f"Request error: {str(e)}")
             return None
     
-    async def get_team_next_match(self, team_id: str) -> dict:
+    async def get_team_next_match(self, team_id: str) -> Optional[dict]:
         """Get the next match for a team"""
-        # TODO: Implement FACEIT API call to get next match
-        # Endpoint: /teams/{team_id}/matches?status=UPCOMING
-        endpoint = f"/teams/{team_id}/matches?status=UPCOMING&limit=1"
+        # Get team matches and filter for upcoming ones
+        endpoint = f"/championships/{os.getenv('CURRENT_ESEA_SEASON_ID')}/matches?type=upcoming"
+
         data = await self._make_request(endpoint)
         
         if data and 'items' in data and len(data['items']) > 0:
-            match = data['items'][0]
-            return {
-                'match_id': match.get('match_id'),
-                'scheduled_at': match.get('scheduled_at'),
-                'opponent_name': match.get('opponent', {}).get('name', 'Unknown'),
-                'competition_name': match.get('competition', {}).get('name', 'ESEA League')
-            }
+            # Find the first upcoming match
+            for match in data['items']:
+                return {
+                    'match_id': match.get('match_id'),
+                    'scheduled_at': match.get('scheduled_at'),
+                    'opponent_name': match.get('teams', {}).get('faction2').get('name'),
+                    'competition_name': match.get('competition', {}).get('name', 'ESEA League')
+                }
         return None
     
-    async def get_team_last_match(self, team_id: str) -> dict:
+    async def get_team_last_match(self, team_id: str) -> Optional[dict]:
         """Get the last completed match for a team"""
-        # TODO: Implement FACEIT API call to get last match
-        # Endpoint: /teams/{team_id}/matches?status=FINISHED
-        endpoint = f"/teams/{team_id}/matches?status=FINISHED&limit=1"
+        # Get team matches
+        endpoint = f"/teams/{team_id}/matches"
         data = await self._make_request(endpoint)
         
         if data and 'items' in data and len(data['items']) > 0:
-            match = data['items'][0]
-            # Parse match results
-            results = match.get('results', {})
-            team_score = results.get('score', 0)
-            opponent_score = results.get('opponent_score', 0)
-            
-            return {
-                'match_id': match.get('match_id'),
-                'team_name': match.get('team', {}).get('name', 'Your Team'),
-                'opponent_name': match.get('opponent', {}).get('name', 'Unknown'),
-                'team_score': team_score,
-                'opponent_score': opponent_score,
-                'team_stats': await self._extract_team_stats(match)
-            }
+            # Find the first finished match
+            for match in data['items']:
+                if match.get('status') == 'FINISHED':
+                    # Parse match results
+                    results = match.get('results', {})
+                    team_score = results.get('score', 0)
+                    opponent_score = results.get('opponent_score', 0)
+                    
+                    return {
+                        'match_id': match.get('match_id'),
+                        'team_name': match.get('team', {}).get('name', 'Your Team'),
+                        'opponent_name': match.get('opponent', {}).get('name', 'Unknown'),
+                        'team_score': team_score,
+                        'opponent_score': opponent_score,
+                        'team_stats': await self._extract_team_stats(match)
+                    }
         return None
     
     async def get_team_match_history(self, team_id: str, limit: int = 10) -> list:
         """Get recent match history for a team"""
-        # TODO: Implement FACEIT API call to get match history
-        # Endpoint: /teams/{team_id}/matches
-        endpoint = f"/teams/{team_id}/matches?status=FINISHED&limit={limit}"
+        endpoint = f"/teams/{team_id}/matches"
         data = await self._make_request(endpoint)
         
         matches = []
         if data and 'items' in data:
-            for match in data['items']:
-                results = match.get('results', {})
-                matches.append({
-                    'match_id': match.get('match_id'),
-                    'opponent_name': match.get('opponent', {}).get('name', 'Unknown'),
-                    'team_score': results.get('score', 0),
-                    'opponent_score': results.get('opponent_score', 0),
-                    'date': match.get('finished_at')
-                })
+            count = 0
+            for match_item in data['items']:
+                if match_item.get('status') == 'FINISHED' and count < limit:
+                    results = match_item.get('results', {})
+                    matches.append({
+                        'match_id': match_item.get('match_id'),
+                        'opponent_name': match_item.get('opponent', {}).get('name', 'Unknown'),
+                        'team_score': results.get('score', 0),
+                        'opponent_score': results.get('opponent_score', 0),
+                        'date': match_item.get('finished_at')
+                    })
+                    count += 1
         return matches
     
-    async def get_player_stats(self, player_name: str) -> dict:
+    async def get_player_stats(self, player_name: str) -> Optional[dict]:
         """Get stats for a specific player by FACEIT username"""
-        # TODO: Implement FACEIT API call to get player stats
-        # Endpoint: /players?nickname={player_name}
+        # Search for player by nickname
         endpoint = f"/players?nickname={player_name}"
         player_data = await self._make_request(endpoint)
         
@@ -114,7 +117,7 @@ class FaceitAPI:
         
         player_id = player_data.get('player_id')
         
-        # Get detailed player stats
+        # Get detailed player stats for CS2
         stats_endpoint = f"/players/{player_id}/stats/CS2"
         stats_data = await self._make_request(stats_endpoint)
         
@@ -136,8 +139,9 @@ class FaceitAPI:
     
     async def _extract_team_stats(self, match: dict) -> dict:
         """Extract team statistics from a match object"""
-        # TODO: Parse match statistics
+        # Parse match statistics from the match data
+        stats = match.get('statistics', {})
         return {
-            'kd_ratio': 'N/A',
-            'headshot_percent': 'N/A'
+            'kd_ratio': stats.get('K/D Ratio', 'N/A'),
+            'headshot_percent': stats.get('Headshot %', 'N/A')
         }
