@@ -3,6 +3,7 @@ Last Match Command
 Displays basic statistics from your team's most recent league match
 """
 
+from datetime import datetime
 import discord
 from discord.ext import commands
 from discord import app_commands
@@ -32,10 +33,12 @@ class LastMatch(commands.Cog):
                 return
             
             # Parse match data
-            team_name = last_match_data.get('team_name', 'Your Team')
             opponent = last_match_data.get('opponent_name', 'Unknown')
             team_score = last_match_data.get('team_score', 0)
             opponent_score = last_match_data.get('opponent_score', 0)
+            finished_at = last_match_data.get('finished_at', 0)
+            timestamp = datetime.fromtimestamp(finished_at)
+            match_id = last_match_data.get('match_id', 0)
             result = "✅ Win" if team_score > opponent_score else "❌ Loss" if team_score < opponent_score else "🤝 Draw"
             
             # Create embed
@@ -46,14 +49,19 @@ class LastMatch(commands.Cog):
             embed.add_field(name="Result", value=result, inline=True)
             embed.add_field(name="Score", value=f"{team_score} - {opponent_score}", inline=True)
             embed.add_field(name="Opponent", value=opponent, inline=False)
+            embed.add_field(name="Finished at", value=f"<t:{int(timestamp.timestamp())}:F>", inline=False)
             
             # Add team stats if available
             if 'team_stats' in last_match_data:
                 stats = last_match_data['team_stats']
-                embed.add_field(name="Team K/D", value=stats.get('kd_ratio', 'N/A'), inline=True)
-                embed.add_field(name="Headshot %", value=stats.get('headshot_percent', 'N/A'), inline=True)
+                # TODO: Embed team statistics
+                embed.add_field(name="Placeholder", value=stats.get('kd_ratio', 'N/A'), inline=True)
+                embed.add_field(name="Placeholder", value=stats.get('headshot_percent', 'N/A'), inline=True)
+
+            embed.add_field(name="Match ID", value=match_id, inline=False)
             
-            embed.set_footer(text="Use /matchhistory to see more recent matches")
+            # TODO:
+            # embed.set_footer(text="Use /matchhistory to see more recent matches")
             
             await interaction.followup.send(embed=embed)
             

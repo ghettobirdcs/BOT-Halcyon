@@ -117,17 +117,16 @@ class FaceitAPI:
                             team_score = results.get('score', {}).get('faction1', 0)
                             opponent_score = results.get('score', {}).get('faction2', 0)
                             opponent_name = faction2.get('name', 'Unknown')
-                            team_name = faction1.get('name', 'Unknown')
+                            team_name = faction1.get('name', 'Your Team')
                         else:
                             team_score = results.get('score', {}).get('faction2', 0)
                             opponent_score = results.get('score', {}).get('faction1', 0)
                             opponent_name = faction1.get('name', 'Unknown')
-                            team_name = faction2.get('name', 'Unknown')
+                            team_name = faction2.get('name', 'Your Team')
 
                         team_matches.append({
                             'match_id': match.get('match_id'),
                             'finished_at': match.get('finished_at'),
-                            'team_name': team_name,
                             'opponent_name': opponent_name,
                             'team_score': team_score,
                             'opponent_score': opponent_score,
@@ -194,6 +193,7 @@ class FaceitAPI:
         return result
     
     async def _extract_team_stats(self, match: dict) -> dict:
+        # TODO:
         """Extract team statistics from a match object"""
         stats = match.get('statistics', {})
         return {
