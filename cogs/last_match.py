@@ -20,7 +20,6 @@ class LastMatch(commands.Cog):
         await interaction.response.defer()
         
         try:
-            # TODO: Fetch last match from FACEIT API
             last_match_data = await self.faceit_api.get_team_last_match(config.TEAM_FACEIT_ID)
             
             if not last_match_data:

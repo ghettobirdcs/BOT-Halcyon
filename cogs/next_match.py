@@ -38,15 +38,15 @@ class NextMatch(commands.Cog):
             match_id = next_match_data.get('match_id', 'N/A')
             competition = next_match_data.get('competition_name', 'ESEA League')
             scheduled_at = next_match_data.get('scheduled_at')
-            
+        
             # Create embed
             embed = discord.Embed(
-                title="📅 Next League Match",
+                title="📅 League Match",
                 color=discord.Color.blue()
             )
             embed.add_field(name="Opponent", value=opponent, inline=False)
             embed.add_field(name="Competition", value=competition, inline=True)
-            
+        
             # Handle scheduled time safely
             if scheduled_at:
                 try:
@@ -72,7 +72,7 @@ class NextMatch(commands.Cog):
             
             embed.add_field(name="Match ID", value=match_id, inline=False)
             # TODO: embed.set_footer(text="Use /matchdetails with the match ID for more information")
-            
+        
             await interaction.followup.send(embed=embed)
             
         except Exception as e:

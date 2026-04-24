@@ -41,48 +41,105 @@ class FaceitAPI:
         except Exception as e:
             print(f"Request error: {str(e)}")
             return None
-    
-    async def get_team_next_match(self, team_id: str) -> Optional[dict]:
-        """Get the next match for a team"""
-        # Get team matches and filter for upcoming ones
-        endpoint = f"/championships/{os.getenv('CURRENT_ESEA_SEASON_ID')}/matches?type=upcoming"
 
-        data = await self._make_request(endpoint)
-        
-        if data and 'items' in data and len(data['items']) > 0:
-            # Find the first upcoming match
+    async def get_team_next_match(self, team_id: str) -> Optional[dict]:
+        """Get team's earliest upcoming match across all pages"""
+        page = 1
+        max_pages = 5  # Check up to 5 pages (500 results)
+        team_matches = []  # Collect ALL team matches first
+    
+        while page <= max_pages:
+            endpoint = f"/championships/{os.getenv('CURRENT_ESEA_SEASON_ID')}/matches?type=upcoming&limit=100&offset={(page-1)*100}"
+            data = await self._make_request(endpoint)
+    
+            if not data or 'items' not in data or len(data['items']) == 0:
+                break
+    
+            # check each match to see if your team is playing
             for match in data['items']:
-                return {
-                    'match_id': match.get('match_id'),
-                    'scheduled_at': match.get('scheduled_at'),
-                    'opponent_name': match.get('teams', {}).get('faction2').get('name'),
-                    'competition_name': match.get('competition', {}).get('name', 'ESEA League')
-                }
+                teams = match.get('teams', {})
+                faction1 = teams.get('faction1', {})
+                faction2 = teams.get('faction2', {})
+    
+                team_id_1 = faction1.get('faction_id')
+                team_id_2 = faction2.get('faction_id')
+                
+                # if your team is in this match, add it to the list
+                if team_id_1 == team_id:
+                    team_matches.append({
+                        'match_id': match.get('match_id'),
+                        'scheduled_at': match.get('scheduled_at'),
+                        'opponent_name': faction2.get('name', 'Unknown'),
+                        'competition_name': match.get('competition', {}).get('name', 'ESEA League')
+                    })
+                elif team_id_2 == team_id:
+                    team_matches.append({
+                        'match_id': match.get('match_id'),
+                        'scheduled_at': match.get('scheduled_at'),
+                        'opponent_name': faction1.get('name', 'Unknown'),
+                        'competition_name': match.get('competition', {}).get('name', 'ESEA League')
+                    })
+    
+            page += 1
+        
+        # Return the earliest match (sorted by scheduled_at)
+        if team_matches:
+            earliest_match = min(team_matches, key=lambda x: x.get('scheduled_at', 0))
+            return earliest_match
+        
         return None
     
     async def get_team_last_match(self, team_id: str) -> Optional[dict]:
-        """Get the last completed match for a team"""
-        # Get team matches
-        endpoint = f"/teams/{team_id}/matches"
-        data = await self._make_request(endpoint)
+        """Get the last completed league match for a team"""
+        page = 1
+        max_pages = 5  # Check up to 5 pages (500 results)
+        team_matches = []
+
+        while page <= max_pages:
+            endpoint = f"/championships/{os.getenv('CURRENT_ESEA_SEASON_ID')}/matches?type=past&limit=100&offset={(page-1)*100}"
+            data = await self._make_request(endpoint)
+            
+            if data and 'items' in data and len(data['items']) > 0:
+                # Find the first finished match
+                for match in data['items']:
+                    teams = match.get('teams', {})
+                    faction1 = teams.get('faction1', {})
+                    faction2 = teams.get('faction2', {})
         
-        if data and 'items' in data and len(data['items']) > 0:
-            # Find the first finished match
-            for match in data['items']:
-                if match.get('status') == 'FINISHED':
-                    # Parse match results
-                    results = match.get('results', {})
-                    team_score = results.get('score', 0)
-                    opponent_score = results.get('opponent_score', 0)
-                    
-                    return {
-                        'match_id': match.get('match_id'),
-                        'team_name': match.get('team', {}).get('name', 'Your Team'),
-                        'opponent_name': match.get('opponent', {}).get('name', 'Unknown'),
-                        'team_score': team_score,
-                        'opponent_score': opponent_score,
-                        'team_stats': await self._extract_team_stats(match)
-                    }
+                    team_id_1 = faction1.get('faction_id')
+                    team_id_2 = faction2.get('faction_id')
+
+                    if team_id_1 == team_id or team_id_2 == team_id:
+                        # Parse match results
+                        results = match.get('results', {})
+                        
+                        if team_id_1 == team_id:
+                            team_score = results.get('score', {}).get('faction1', 0)
+                            opponent_score = results.get('score', {}).get('faction2', 0)
+                            opponent_name = faction2.get('name', 'Unknown')
+                            team_name = faction1.get('name', 'Unknown')
+                        else:
+                            team_score = results.get('score', {}).get('faction2', 0)
+                            opponent_score = results.get('score', {}).get('faction1', 0)
+                            opponent_name = faction1.get('name', 'Unknown')
+                            team_name = faction2.get('name', 'Unknown')
+
+                        team_matches.append({
+                            'match_id': match.get('match_id'),
+                            'finished_at': match.get('finished_at'),
+                            'team_name': team_name,
+                            'opponent_name': opponent_name,
+                            'team_score': team_score,
+                            'opponent_score': opponent_score,
+                            'team_stats': await self._extract_team_stats(match)
+                        })
+
+            page += 1
+
+        if team_matches:
+            latest_match = max(team_matches, key=lambda x: x.get('finished_at', 0))
+            return latest_match
+
         return None
     
     async def get_team_match_history(self, team_id: str, limit: int = 10) -> list:
@@ -108,7 +165,6 @@ class FaceitAPI:
     
     async def get_player_stats(self, player_name: str) -> Optional[dict]:
         """Get stats for a specific player by FACEIT username"""
-        # Search for player by nickname
         endpoint = f"/players?nickname={player_name}"
         player_data = await self._make_request(endpoint)
         
@@ -139,7 +195,6 @@ class FaceitAPI:
     
     async def _extract_team_stats(self, match: dict) -> dict:
         """Extract team statistics from a match object"""
-        # Parse match statistics from the match data
         stats = match.get('statistics', {})
         return {
             'kd_ratio': stats.get('K/D Ratio', 'N/A'),
