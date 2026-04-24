@@ -7,6 +7,7 @@ from datetime import datetime
 import discord
 from discord.ext import commands
 from discord import app_commands
+from discord.utils import maybe_coroutine
 from api.faceit_api import FaceitAPI
 import config
 
@@ -31,25 +32,40 @@ class LastMatch(commands.Cog):
                 )
                 await interaction.followup.send(embed=embed)
                 return
+
+            # DEBUG: Print match data to console
+            # self.faceit_api.print_match_data(last_match_data, "Last Match Data")
             
             # Parse match data
             opponent = last_match_data.get('opponent_name', 'Unknown')
             team_score = last_match_data.get('team_score', 0)
             opponent_score = last_match_data.get('opponent_score', 0)
+            team_avatar = last_match_data.get('team_avatar')
+            # TODO: avg_skill_lvl = last_match_data.get('skill_level')
+            map_pick = last_match_data.get('map_pick')
+            faceit_url = last_match_data.get('faceit_url')
             finished_at = last_match_data.get('finished_at', 0)
             timestamp = datetime.fromtimestamp(finished_at)
-            match_id = last_match_data.get('match_id', 0)
-            result = "✅ Win" if team_score > opponent_score else "❌ Loss" if team_score < opponent_score else "🤝 Draw"
+            result = "✅ Win" if team_score > opponent_score else "❌ Loss"
             
             # Create embed
             embed = discord.Embed(
                 title="📊 Last League Match",
                 color=discord.Color.green() if team_score > opponent_score else discord.Color.red()
             )
+
+            if team_avatar:
+                embed.set_thumbnail(url=team_avatar)
+
+            if map_pick:
+                map_pick = map_pick[3:].capitalize()
+
+            embed.add_field(name="Opponent", value=opponent, inline=True)
+            score_line = f"**{team_score}** - **{opponent_score}**"
+            embed.add_field(name="Score", value=score_line, inline=True)
             embed.add_field(name="Result", value=result, inline=True)
-            embed.add_field(name="Score", value=f"{team_score} - {opponent_score}", inline=True)
-            embed.add_field(name="Opponent", value=opponent, inline=False)
-            embed.add_field(name="Finished at", value=f"<t:{int(timestamp.timestamp())}:F>", inline=False)
+            embed.add_field(name="Map", value=map_pick, inline=True)
+            embed.add_field(name="Finished", value=f"<t:{int(timestamp.timestamp())}:F>", inline=False)
             
             # Add team stats if available
             if 'team_stats' in last_match_data:
@@ -58,7 +74,7 @@ class LastMatch(commands.Cog):
                 embed.add_field(name="Placeholder", value=stats.get('kd_ratio', 'N/A'), inline=True)
                 embed.add_field(name="Placeholder", value=stats.get('headshot_percent', 'N/A'), inline=True)
 
-            embed.add_field(name="Match ID", value=match_id, inline=False)
+            embed.add_field(name="Matchroom", value=faceit_url, inline=False)
             
             # TODO:
             # embed.set_footer(text="Use /matchhistory to see more recent matches")

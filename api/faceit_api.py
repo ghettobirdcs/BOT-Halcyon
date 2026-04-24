@@ -5,8 +5,10 @@ Handles all API calls to the FACEIT platform
 
 import os
 import aiohttp
+import json
 from typing import Optional
 from dotenv import load_dotenv
+from pprint import pprint
 
 # Load environment variables
 load_dotenv()
@@ -25,6 +27,14 @@ class FaceitAPI:
             "Authorization": f"Bearer {self.api_key}",
             "Accept": "application/json"
         }
+
+    def print_match_data(self, match: dict, title: str = "Match Data") -> None:
+        """Pretty print match data to console"""
+        print("\n" + "=" * 70)
+        print(f"{title}")
+        print("=" * 70)
+        print(json.dumps(match, indent=2))
+        print("=" * 70 + "\n")
     
     async def _make_request(self, endpoint: str) -> Optional[dict]:
         """Make an async GET request to the FACEIT API"""
@@ -63,6 +73,8 @@ class FaceitAPI:
     
                 team_id_1 = faction1.get('faction_id')
                 team_id_2 = faction2.get('faction_id')
+
+                faceit_url = match.get('faceit_url').replace("{lang}", "en")
                 
                 # if your team is in this match, add it to the list
                 if team_id_1 == team_id:
@@ -70,14 +82,18 @@ class FaceitAPI:
                         'match_id': match.get('match_id'),
                         'scheduled_at': match.get('scheduled_at'),
                         'opponent_name': faction2.get('name', 'Unknown'),
-                        'competition_name': match.get('competition', {}).get('name', 'ESEA League')
+                        'competition_name': match.get('competition', {}).get('name', 'ESEA League'),
+                        'team_avatar': faction1.get('avatar'),
+                        'faceit_url': faceit_url
                     })
                 elif team_id_2 == team_id:
                     team_matches.append({
                         'match_id': match.get('match_id'),
                         'scheduled_at': match.get('scheduled_at'),
                         'opponent_name': faction1.get('name', 'Unknown'),
-                        'competition_name': match.get('competition', {}).get('name', 'ESEA League')
+                        'competition_name': match.get('competition', {}).get('name', 'ESEA League'),
+                        'team_avatar': faction2.get('avatar'),
+                        'faceit_url': faceit_url
                     })
     
             page += 1
@@ -98,6 +114,10 @@ class FaceitAPI:
         while page <= max_pages:
             endpoint = f"/championships/{os.getenv('CURRENT_ESEA_SEASON_ID')}/matches?type=past&limit=100&offset={(page-1)*100}"
             data = await self._make_request(endpoint)
+
+            # DEBUG: Print raw API Response on first page
+            # if page == 1 and data:
+            #     self.print_match_data(data, "Raw API Response (Page 1)")
             
             if data and 'items' in data and len(data['items']) > 0:
                 # Find the first finished match
@@ -117,19 +137,25 @@ class FaceitAPI:
                             team_score = results.get('score', {}).get('faction1', 0)
                             opponent_score = results.get('score', {}).get('faction2', 0)
                             opponent_name = faction2.get('name', 'Unknown')
-                            team_name = faction1.get('name', 'Your Team')
+                            team_avatar = faction1.get('avatar'),
+                            # TODO: faction1/2.get('roster').get('game_skill_level')?
                         else:
                             team_score = results.get('score', {}).get('faction2', 0)
                             opponent_score = results.get('score', {}).get('faction1', 0)
                             opponent_name = faction1.get('name', 'Unknown')
-                            team_name = faction2.get('name', 'Your Team')
+                            team_avatar = faction2.get('avatar'),
+
+                        map_pick = match.get('voting').get('map').get('pick')
+                        faceit_url = match.get('faceit_url').replace("{lang}", "en")
 
                         team_matches.append({
-                            'match_id': match.get('match_id'),
                             'finished_at': match.get('finished_at'),
                             'opponent_name': opponent_name,
                             'team_score': team_score,
                             'opponent_score': opponent_score,
+                            'team_avatar' : self._get_first_item(team_avatar),
+                            'map_pick' : self._get_first_item(map_pick),
+                            'faceit_url' : self._get_first_item(faceit_url),
                             'team_stats': await self._extract_team_stats(match)
                         })
 
@@ -191,6 +217,12 @@ class FaceitAPI:
             }
         
         return result
+
+    def _get_first_item(self, value):
+        """Extract first item from list or return value as-is"""
+        if isinstance(value, list) and len(value) > 0 or isinstance(value, tuple) and len(value) > 0:
+            return value[0]
+        return value
     
     async def _extract_team_stats(self, match: dict) -> dict:
         # TODO:

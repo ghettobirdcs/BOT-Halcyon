@@ -35,17 +35,19 @@ class NextMatch(commands.Cog):
             
             # Parse match data with proper error handling
             opponent = next_match_data.get('opponent_name', 'Unknown')
-            match_id = next_match_data.get('match_id', 'N/A')
+            faceit_url = next_match_data.get('faceit_url')
             competition = next_match_data.get('competition_name', 'ESEA League')
             scheduled_at = next_match_data.get('scheduled_at')
+            team_avatar = next_match_data.get('team_avatar')
         
             # Create embed
             embed = discord.Embed(
                 title="📅 League Match",
-                color=discord.Color.blue()
+                color=discord.Color.yellow()
             )
             embed.add_field(name="Opponent", value=opponent, inline=False)
             embed.add_field(name="Competition", value=competition, inline=True)
+            embed.set_thumbnail(url=team_avatar)
         
             # Handle scheduled time safely
             if scheduled_at:
@@ -70,7 +72,7 @@ class NextMatch(commands.Cog):
             else:
                 embed.add_field(name="Scheduled Time", value="TBA", inline=True)
             
-            embed.add_field(name="Match ID", value=match_id, inline=False)
+            embed.add_field(name="Matchroom", value=faceit_url, inline=False)
             # TODO: embed.set_footer(text="Use /matchdetails with the match ID for more information")
         
             await interaction.followup.send(embed=embed)
