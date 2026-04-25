@@ -17,7 +17,7 @@ class PlayerStats(commands.Cog):
         name="playerstats",
         description="Get statistics for a specific player from FACEIT"
     )
-    @app_commands.describe(player_name="FACEIT username or player name")
+    @app_commands.describe(player_name="FACEIT username")
     async def player_stats(self, interaction: discord.Interaction, player_name: str):
         """Display player statistics from FACEIT"""
         await interaction.response.defer()
@@ -39,17 +39,29 @@ class PlayerStats(commands.Cog):
             avatar_url = player_data.get('avatar', None)
             elo = player_data.get('elo', 0)
             level = player_data.get('level', 0) 
-            verified = player_data.get('verified', 0)
+            url = player_data.get('url', None)
             memberships = player_data.get('memberships', ())
+
+            # Embed color based on faceit level
+            if level < 4:
+                color = discord.Color.green()
+            elif level < 8:
+                color = discord.Color.yellow()
+            elif level < 10:
+                color = discord.Color.orange()
+            else:
+                color = discord.Color.red()
 
             # Create embed
             embed = discord.Embed(
                 title=f"📊 {nickname}'s Stats",
-                color=discord.Color.random()
+                color=color
             )
             
             if avatar_url:
                 embed.set_thumbnail(url=avatar_url)
+            if url:
+                url = url.replace("{lang}", "en")
             
             # Add general stats
             embed.add_field(
@@ -68,8 +80,8 @@ class PlayerStats(commands.Cog):
                 inline=True
             )
             embed.add_field(
-                name="Verified",
-                value=verified,
+                name="FACEIT",
+                value=f"[View Profile]({url})",
                 inline=True
             )
 

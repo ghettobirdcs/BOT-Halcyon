@@ -201,7 +201,7 @@ class FaceitAPI:
         player_id = player_data.get('player_id')
         player_elo = player_data.get('games', {}).get('cs2', {}).get('faceit_elo', 0)
         player_level = player_data.get('games', {}).get('cs2', {}).get('skill_level', 0)
-        player_verified = player_data.get('verified', False)
+        player_url = player_data.get('faceit_url', False)
         player_memberships = player_data.get('memberships', ())
 
         # Get detailed player stats for CS2
@@ -218,7 +218,7 @@ class FaceitAPI:
             'elo' : player_elo,
             'level' : player_level,
             'memberships' : ', '.join(player_memberships).upper(),
-            'verified' : player_verified
+            'url' : player_url
         }
         
         if stats_data:
