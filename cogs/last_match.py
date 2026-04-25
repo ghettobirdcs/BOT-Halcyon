@@ -40,7 +40,7 @@ class LastMatch(commands.Cog):
             opponent = last_match_data.get('opponent_name', 'Unknown')
             team_score = last_match_data.get('team_score', 0)
             opponent_score = last_match_data.get('opponent_score', 0)
-            team_avatar = last_match_data.get('team_avatar')
+            opponent_avatar = last_match_data.get('opponent_avatar')
             # TODO: avg_skill_lvl = last_match_data.get('skill_level')
             map_pick = last_match_data.get('map_pick')
             faceit_url = last_match_data.get('faceit_url')
@@ -54,17 +54,17 @@ class LastMatch(commands.Cog):
                 color=discord.Color.green() if team_score > opponent_score else discord.Color.red()
             )
 
-            if team_avatar:
-                embed.set_thumbnail(url=team_avatar)
+            if opponent_avatar:
+                embed.set_thumbnail(url=opponent_avatar)
 
             if map_pick:
                 map_pick = map_pick[3:].capitalize()
 
-            embed.add_field(name="Opponent", value=opponent, inline=True)
+            embed.add_field(name="Opponent", value=opponent, inline=False)
             score_line = f"**{team_score}** - **{opponent_score}**"
+            embed.add_field(name="Map", value=map_pick, inline=True)
             embed.add_field(name="Score", value=score_line, inline=True)
             embed.add_field(name="Result", value=result, inline=True)
-            embed.add_field(name="Map", value=map_pick, inline=True)
             embed.add_field(name="Finished", value=f"<t:{int(timestamp.timestamp())}:F>", inline=False)
             
             # Add team stats if available

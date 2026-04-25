@@ -8,7 +8,6 @@ import aiohttp
 import json
 from typing import Optional
 from dotenv import load_dotenv
-from pprint import pprint
 
 # Load environment variables
 load_dotenv()
@@ -83,7 +82,7 @@ class FaceitAPI:
                         'scheduled_at': match.get('scheduled_at'),
                         'opponent_name': faction2.get('name', 'Unknown'),
                         'competition_name': match.get('competition', {}).get('name', 'ESEA League'),
-                        'team_avatar': faction1.get('avatar'),
+                        'opponent_avatar': faction2.get('avatar'),
                         'faceit_url': faceit_url
                     })
                 elif team_id_2 == team_id:
@@ -92,7 +91,7 @@ class FaceitAPI:
                         'scheduled_at': match.get('scheduled_at'),
                         'opponent_name': faction1.get('name', 'Unknown'),
                         'competition_name': match.get('competition', {}).get('name', 'ESEA League'),
-                        'team_avatar': faction2.get('avatar'),
+                        'opponent_avatar': faction1.get('avatar'),
                         'faceit_url': faceit_url
                     })
     
@@ -137,13 +136,13 @@ class FaceitAPI:
                             team_score = results.get('score', {}).get('faction1', 0)
                             opponent_score = results.get('score', {}).get('faction2', 0)
                             opponent_name = faction2.get('name', 'Unknown')
-                            team_avatar = faction1.get('avatar'),
+                            opponent_avatar = faction2.get('avatar'),
                             # TODO: faction1/2.get('roster').get('game_skill_level')?
                         else:
                             team_score = results.get('score', {}).get('faction2', 0)
                             opponent_score = results.get('score', {}).get('faction1', 0)
                             opponent_name = faction1.get('name', 'Unknown')
-                            team_avatar = faction2.get('avatar'),
+                            opponent_avatar = faction1.get('avatar'),
 
                         map_pick = match.get('voting').get('map').get('pick')
                         faceit_url = match.get('faceit_url').replace("{lang}", "en")
@@ -153,7 +152,7 @@ class FaceitAPI:
                             'opponent_name': opponent_name,
                             'team_score': team_score,
                             'opponent_score': opponent_score,
-                            'team_avatar' : self._get_first_item(team_avatar),
+                            'opponent_avatar' : self._get_first_item(opponent_avatar),
                             'map_pick' : self._get_first_item(map_pick),
                             'faceit_url' : self._get_first_item(faceit_url),
                             'team_stats': await self._extract_team_stats(match)
@@ -195,25 +194,40 @@ class FaceitAPI:
         
         if not player_data:
             return None
+
+        # DEBUG: Print player data to console
+        # self.print_match_data(player_data)
         
         player_id = player_data.get('player_id')
-        
+        player_elo = player_data.get('games', {}).get('cs2', {}).get('faceit_elo', 0)
+        player_level = player_data.get('games', {}).get('cs2', {}).get('skill_level', 0)
+        player_verified = player_data.get('verified', False)
+        player_memberships = player_data.get('memberships', ())
+
         # Get detailed player stats for CS2
-        stats_endpoint = f"/players/{player_id}/stats/CS2"
+        stats_endpoint = f"/players/{player_id}/stats/cs2"
         stats_data = await self._make_request(stats_endpoint)
+
+        # DEBUG: Print player stats to console
+        # if stats_data:
+        #     self.print_match_data(stats_data)
         
         result = {
             'nickname': player_data.get('nickname'),
             'avatar': player_data.get('avatar'),
-            'elo': player_data.get('elo'),
-            'win_rate': player_data.get('game_player_stats', {}).get('win_rate', 'N/A')
+            'elo' : player_elo,
+            'level' : player_level,
+            'memberships' : ', '.join(player_memberships).upper(),
+            'verified' : player_verified
         }
         
         if stats_data:
-            result['cs2_stats'] = {
-                'kd_ratio': stats_data.get('lifetime', {}).get('K/D Ratio', 'N/A'),
-                'headshot_percent': stats_data.get('lifetime', {}).get('Headshot %', 'N/A'),
-                'avg_kills': stats_data.get('lifetime', {}).get('Average Kills', 'N/A')
+            result['cs2_stats'] = {  # Only shows stats for CS2, not CSGO
+                'matches': stats_data.get('lifetime', {}).get('Matches', 0),
+                'avg_kd_ratio': stats_data.get('lifetime', {}).get('Average K/D Ratio', 'N/A'),
+                'avg_headshot_percent': stats_data.get('lifetime', {}).get('Average Headshots %', 'N/A'),
+                'win_rate': stats_data.get('lifetime', {}).get('Win Rate %', 0),
+                'recent_results': stats_data.get('lifetime', {}).get('Recent Results', [])
             }
         
         return result

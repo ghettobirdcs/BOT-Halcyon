@@ -38,7 +38,7 @@ class NextMatch(commands.Cog):
             faceit_url = next_match_data.get('faceit_url')
             competition = next_match_data.get('competition_name', 'ESEA League')
             scheduled_at = next_match_data.get('scheduled_at')
-            team_avatar = next_match_data.get('team_avatar')
+            opponent_avatar = next_match_data.get('opponent_avatar')
         
             # Create embed
             embed = discord.Embed(
@@ -47,7 +47,7 @@ class NextMatch(commands.Cog):
             )
             embed.add_field(name="Opponent", value=opponent, inline=False)
             embed.add_field(name="Competition", value=competition, inline=True)
-            embed.set_thumbnail(url=team_avatar)
+            embed.set_thumbnail(url=opponent_avatar)
         
             # Handle scheduled time safely
             if scheduled_at:

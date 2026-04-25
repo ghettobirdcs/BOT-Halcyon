@@ -23,7 +23,6 @@ class PlayerStats(commands.Cog):
         await interaction.response.defer()
         
         try:
-            # TODO: Fetch player stats from FACEIT API
             player_data = await self.faceit_api.get_player_stats(player_name)
             
             if not player_data:
@@ -38,11 +37,15 @@ class PlayerStats(commands.Cog):
             # Parse player data
             nickname = player_data.get('nickname', player_name)
             avatar_url = player_data.get('avatar', None)
-            
+            elo = player_data.get('elo', 0)
+            level = player_data.get('level', 0) 
+            verified = player_data.get('verified', 0)
+            memberships = player_data.get('memberships', ())
+
             # Create embed
             embed = discord.Embed(
                 title=f"📊 {nickname}'s Stats",
-                color=discord.Color.purple()
+                color=discord.Color.random()
             )
             
             if avatar_url:
@@ -50,32 +53,66 @@ class PlayerStats(commands.Cog):
             
             # Add general stats
             embed.add_field(
-                name="Elo Rating",
-                value=player_data.get('elo', 'N/A'),
+                name="Level",
+                value=level,
                 inline=True
             )
             embed.add_field(
-                name="Win Rate",
-                value=player_data.get('win_rate', 'N/A'),
+                name="Elo Rating",
+                value=elo,
                 inline=True
             )
-            
+            embed.add_field(
+                name="Memberships",
+                value=memberships,
+                inline=True
+            )
+            embed.add_field(
+                name="Verified",
+                value=verified,
+                inline=True
+            )
+
             # Add CS2 specific stats
             if 'cs2_stats' in player_data:
                 stats = player_data['cs2_stats']
+
+                matches = stats.get('matches', 0)
+                avg_kd_ratio = stats.get('avg_kd_ratio', 0)
+                avg_headshot_percent = stats.get('avg_headshot_percent', 0)
+                win_rate = stats.get('win_rate', 0)
+                recent_results = stats.get('recent_results', ())
+                
+                formatted_results = ""
+                for result in recent_results:
+                    if result == "1":
+                        formatted_results += "W "
+                    elif result == "0":
+                        formatted_results += "L "
+
                 embed.add_field(
-                    name="K/D Ratio",
-                    value=stats.get('kd_ratio', 'N/A'),
+                    name="CS2 Matches",
+                    value=matches,
                     inline=True
                 )
                 embed.add_field(
-                    name="Headshot %",
-                    value=stats.get('headshot_percent', 'N/A'),
+                    name="Avg. K/D Ratio",
+                    value=avg_kd_ratio,
                     inline=True
                 )
                 embed.add_field(
-                    name="Average Kills",
-                    value=stats.get('avg_kills', 'N/A'),
+                    name="Avg. Headshots",
+                    value=avg_headshot_percent + ' %',
+                    inline=True
+                )
+                embed.add_field(
+                    name="Avg. Win Rate",
+                    value=win_rate + ' %',
+                    inline=True
+                )
+                embed.add_field(
+                    name="Recent Results",
+                    value=formatted_results,
                     inline=True
                 )
             
