@@ -70,9 +70,13 @@ class LastMatch(commands.Cog):
             # Add team stats if available
             if 'team_stats' in last_match_data:
                 stats = last_match_data['team_stats']
-                # TODO: Embed team statistics
-                embed.add_field(name="Placeholder", value=stats.get('kd_ratio', 'N/A'), inline=True)
-                embed.add_field(name="Placeholder", value=stats.get('headshot_percent', 'N/A'), inline=True)
+                kills_nickname = stats.get('most_kills_nickname')
+                kills = stats.get('most_kills')
+                mvps_nickname = stats.get('most_mvps_nickname')
+                mvps = stats.get('most_mvps')
+
+                embed.add_field(name="💀 Most Kills", value=f"{kills_nickname}: **{kills}**", inline=True)
+                embed.add_field(name="⭐ Most MVPs", value=f"{mvps_nickname}: **{mvps}**", inline=True)
 
             embed.add_field(name="Matchroom", value=faceit_url, inline=False)
             

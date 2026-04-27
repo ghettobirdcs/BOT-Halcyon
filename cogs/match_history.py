@@ -16,26 +16,14 @@ class MatchHistory(commands.Cog):
     
     @app_commands.command(
         name="matchhistory",
-        description="Shows your team's recent match history"
+        description="Shows your team's recent match history (up to 10 matches)"
     )
-    @app_commands.describe(limit="Number of matches to display (1-50, default: 10)")
-    async def match_history(self, interaction: discord.Interaction, limit: int = config.DEFAULT_MATCH_HISTORY_LIMIT):
+    async def match_history(self, interaction: discord.Interaction):
         """Display recent match history"""
         await interaction.response.defer()
         
-        # Validate limit
-        if limit < 1 or limit > 50:
-            embed = discord.Embed(
-                title="Invalid Limit",
-                description="Limit must be between 1 and 50.",
-                color=discord.Color.red()
-            )
-            await interaction.followup.send(embed=embed)
-            return
-        
         try:
-            # TODO: Fetch match history from FACEIT API
-            matches = await self.faceit_api.get_team_match_history(config.TEAM_FACEIT_ID, limit)
+            matches = await self.faceit_api.get_team_matches(config.TEAM_FACEIT_ID, "past")
             
             if not matches:
                 embed = discord.Embed(
