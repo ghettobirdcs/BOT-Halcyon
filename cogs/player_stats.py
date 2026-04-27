@@ -4,14 +4,18 @@ Displays statistics for a specific player from FACEIT
 """
 
 import discord
+import os
+import math
 from discord.ext import commands
 from discord import app_commands
 from api.faceit_api import FaceitAPI
+from api.leetify_api import LeetifyAPI
 
 class PlayerStats(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.faceit_api = FaceitAPI()
+        self.leetify_api = LeetifyAPI()
     
     @app_commands.command(
         name="playerstats",
@@ -33,6 +37,12 @@ class PlayerStats(commands.Cog):
                 )
                 await interaction.followup.send(embed=embed)
                 return
+
+            steam_id = player_data.get('steam64_id', None)
+            leetify_data = None
+
+            if steam_id:
+                leetify_data = await self.leetify_api.get_player_stats(steam_id)
             
             # Parse player data
             nickname = player_data.get('nickname', player_name)
@@ -40,7 +50,27 @@ class PlayerStats(commands.Cog):
             elo = player_data.get('elo', 0)
             level = player_data.get('level', 0) 
             url = player_data.get('url', None)
-            memberships = player_data.get('memberships', ())
+
+            if not leetify_data:
+                embed = discord.Embed(
+                    title="Player has no Leetify",
+                    description=f"Could not find player: {player_name}",
+                    color=discord.Color.orange()
+                )
+                await interaction.followup.send(embed=embed)
+                return
+
+            # Parse LEETIFY data
+            leetify_rating = leetify_data.get('leetify_rating', 0)
+            aim_rating = leetify_data.get('aim_rating', 0)
+            utility_rating = leetify_data.get('utility_rating', 0)
+            clutch_rating = leetify_data.get('clutch_rating', 0)
+            preaim = leetify_data.get('preaim', 0)
+            spray_accuracy = leetify_data.get('spray_accuracy', 0)
+            reaction_time = leetify_data.get('reaction_time', 0)
+            flashbang_kills = leetify_data.get('flashbang_kills', 0)
+            he_dmg = leetify_data.get('he_dmg', 0)
+            unused_utility = leetify_data.get('unused_utility', 0)
 
             # Embed color based on faceit level
             if level < 4:
@@ -75,8 +105,8 @@ class PlayerStats(commands.Cog):
                 inline=True
             )
             embed.add_field(
-                name="Memberships",
-                value=memberships,
+                name="Leetify Rating",
+                value=leetify_rating,
                 inline=True
             )
             embed.add_field(
@@ -127,10 +157,81 @@ class PlayerStats(commands.Cog):
                     value=formatted_results,
                     inline=True
                 )
+
+            embed.add_field(
+                name="",
+                value="",
+                inline=False
+            )
+
+            embed.add_field(
+                name="Aim",
+                value=math.floor(aim_rating * 100) / 100,
+                inline=True
+            )
+
+            embed.add_field(
+                name="Utility",
+                value=math.floor(utility_rating * 100) / 100,
+                inline=True
+            )
+
+            embed.add_field(
+                name="Clutch",
+                value=math.floor((clutch_rating * 100) * 100) / 100,
+                inline=True
+            )
             
-            embed.set_footer(text="Stats are updated from FACEIT")
+            embed.add_field(
+                name="Killer Flashbangs",
+                value=math.floor(flashbang_kills * 100) / 100,
+                inline=True
+            )
+
+            embed.add_field(
+                name="Avg. HE Damage",
+                value=math.floor(he_dmg * 100) / 100,
+                inline=True
+            )
+
+            embed.add_field(
+                name="Preaim",
+                value=f"{math.floor(preaim * 100) / 100}°",
+                inline=True
+            )
+
+            embed.add_field(
+                name="Reaction Time (ms)",
+                value=math.floor(reaction_time * 100) / 100,
+                inline=True
+            )
+
+            embed.add_field(
+                name="Spray Accuracy",
+                value=f"{math.floor(spray_accuracy * 100) / 100} %",
+                inline=True
+            )
+
+            embed.add_field(
+                name="Unused Utility",
+                value=f"$ {math.floor(unused_utility * 100) / 100}",
+                inline=True
+            )
+
+            embed.add_field(
+                name="",
+                value=f"[View on Leetify](https://leetify.com/app/profile/{steam_id})", 
+                inline=False
+            )
+
+            # Add Leetify logo to embed (local png image)
+            path = os.path.join("assets", "leetify_logo.png")
+            leetify_logo = discord.File(path, filename="leetify_logo.png")
+            embed.set_image(url="attachment://leetify_logo.png")
+
+            embed.set_footer(text="Data provided by FACEIT, Leetify")
             
-            await interaction.followup.send(embed=embed)
+            await interaction.followup.send(embed=embed, file=leetify_logo)
             
         except Exception as e:
             embed = discord.Embed(

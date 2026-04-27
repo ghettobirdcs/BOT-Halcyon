@@ -3,9 +3,6 @@ FACEIT API Wrapper
 Handles all API calls to the FACEIT platform
 """
 
-# TODO: API Errors in console when using commands?
-# Happened after using the function get_team_matches for other two commands instead of just matchhistory
-
 import os
 import aiohttp
 import json
@@ -29,14 +26,6 @@ class FaceitAPI:
             "Authorization": f"Bearer {self.api_key}",
             "Accept": "application/json"
         }
-
-    def print_match_data(self, match: dict, title: str = "Match Data") -> None:
-        """Pretty print match data to console"""
-        print("\n" + "=" * 70)
-        print(f"{title}")
-        print("=" * 70)
-        print(json.dumps(match, indent=2))
-        print("=" * 70 + "\n")
     
     async def _make_request(self, endpoint: str) -> Optional[dict]:
         """Make an async GET request to the FACEIT API"""
@@ -53,6 +42,14 @@ class FaceitAPI:
         except Exception as e:
             print(f"Request error: {str(e)}")
             return None
+
+    def print_match_data(self, match: dict, title: str = "Match Data") -> None:
+        """Pretty print match data to console"""
+        print("\n" + "=" * 70)
+        print(f"{title}")
+        print("=" * 70)
+        print(json.dumps(match, indent=2))
+        print("=" * 70 + "\n")
 
     async def get_team_next_match(self, team_id: str) -> Optional[dict]:
         """Get team's earliest upcoming match across all pages"""
@@ -78,7 +75,7 @@ class FaceitAPI:
         max_pages = 5  # Check up to 5 pages (500 results)
         team_matches = []  # Collect ALL team matches first
     
-        while page <= max_pages or len(team_matches) < 10:
+        while page <= max_pages or len(team_matches) < 5:
             endpoint = f"/championships/{os.getenv('CURRENT_ESEA_SEASON_ID')}/matches?type={url_type}&limit=100&offset={(page-1)*100}"
             data = await self._make_request(endpoint)
     
@@ -139,7 +136,7 @@ class FaceitAPI:
                             'scheduled_at': match.get('scheduled_at'),
                             'opponent_name': opponent_name,
                             'opponent_avatar' : self._get_first_item(opponent_avatar),
-                            'faceit_url' : self._get_first_item(faceit_url),
+                            'faceit_url' : self._get_first_item(faceit_url)
                         })
 
             page += 1
@@ -166,7 +163,6 @@ class FaceitAPI:
         player_elo = player_data.get('games', {}).get('cs2', {}).get('faceit_elo', 0)
         player_level = player_data.get('games', {}).get('cs2', {}).get('skill_level', 0)
         player_url = player_data.get('faceit_url', False)
-        player_memberships = player_data.get('memberships', ())
 
         # Get detailed player stats for CS2
         stats_endpoint = f"/players/{player_id}/stats/cs2"
@@ -177,11 +173,11 @@ class FaceitAPI:
         #     self.print_match_data(stats_data)
         
         result = {
+            'steam64_id': player_data.get('steam_id_64'),
             'nickname': player_data.get('nickname'),
             'avatar': player_data.get('avatar'),
             'elo' : player_elo,
             'level' : player_level,
-            'memberships' : ', '.join(player_memberships).upper(),
             'url' : player_url
         }
         

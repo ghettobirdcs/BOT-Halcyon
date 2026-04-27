@@ -7,7 +7,6 @@ from datetime import datetime
 import discord
 from discord.ext import commands
 from discord import app_commands
-from discord.utils import maybe_coroutine
 from api.faceit_api import FaceitAPI
 import config
 
@@ -40,10 +39,10 @@ class LastMatch(commands.Cog):
             opponent = last_match_data.get('opponent_name', 'Unknown')
             team_score = last_match_data.get('team_score', 0)
             opponent_score = last_match_data.get('opponent_score', 0)
-            opponent_avatar = last_match_data.get('opponent_avatar')
+            opponent_avatar = last_match_data.get('opponent_avatar', None)
             # TODO: avg_skill_lvl = last_match_data.get('skill_level')
-            map_pick = last_match_data.get('map_pick')
-            faceit_url = last_match_data.get('faceit_url')
+            map_pick = last_match_data.get('map_pick', None)
+            faceit_url = last_match_data.get('faceit_url', None)
             finished_at = last_match_data.get('finished_at', 0)
             timestamp = datetime.fromtimestamp(finished_at)
             result = "✅ Win" if team_score > opponent_score else "❌ Loss"
@@ -79,9 +78,7 @@ class LastMatch(commands.Cog):
                 embed.add_field(name="⭐ Most MVPs", value=f"{mvps_nickname}: **{mvps}**", inline=True)
 
             embed.add_field(name="Matchroom", value=faceit_url, inline=False)
-            
-            # TODO:
-            # embed.set_footer(text="Use /matchhistory to see more recent matches")
+            embed.set_footer(text="Use /matchhistory to see more recent matches")
             
             await interaction.followup.send(embed=embed)
             
