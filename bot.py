@@ -36,7 +36,7 @@ bot = commands.Bot(
 async def on_ready():
     """Called when the bot has successfully connected to Discord"""
     print(f'\n{bot.user} is now running!')
-    print(f'Bot ID: {bot.user.id}')
+    print(f'Bot ID: {bot.user.id}')  # pyright: ignore
     print(f'Discord.py version: {discord.__version__}')
     print(f'Syncing slash commands...\n')
     try:
@@ -66,7 +66,7 @@ async def main():
     """Main entry point for the bot"""
     print('Starting Bot Halcyon...')
     await load_cogs()
-    await bot.start(DISCORD_TOKEN)
+    await bot.start(DISCORD_TOKEN)  # pyright: ignore
 
 if __name__ == '__main__':
     import asyncio

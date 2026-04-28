@@ -14,9 +14,6 @@ DISCORD_GUILD_ID = 1476649765390516244# Set to your guild ID (int) or leave as N
 # Bot prefix for text commands (if using them)
 BOT_PREFIX = "/"
 
-# FACEIT API Base URL
-FACEIT_API_BASE_URL = "https://open.faceit.com/api/v4"
-
 # Default match history limit
 DEFAULT_MATCH_HISTORY_LIMIT = 10
 

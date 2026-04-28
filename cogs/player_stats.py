@@ -202,7 +202,7 @@ class PlayerStats(commands.Cog):
 
             embed.add_field(
                 name="Reaction Time (ms)",
-                value=math.floor(reaction_time * 100) / 100,
+                value=math.floor(reaction_time),
                 inline=True
             )
 
