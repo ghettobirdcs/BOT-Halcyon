@@ -106,7 +106,7 @@ class PlayerStats(commands.Cog):
             )
             embed.add_field(
                 name="Leetify Rating",
-                value=leetify_rating,
+                value=math.floor(leetify_rating * 100) / 100,
                 inline=True
             )
             embed.add_field(

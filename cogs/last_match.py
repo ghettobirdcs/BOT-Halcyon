@@ -68,11 +68,11 @@ class LastMatch(commands.Cog):
             
             # Add team stats if available
             if 'team_stats' in last_match_data:
-                stats = last_match_data['team_stats']
-                kills_nickname = stats.get('most_kills_nickname')
-                kills = stats.get('most_kills')
-                mvps_nickname = stats.get('most_mvps_nickname')
-                mvps = stats.get('most_mvps')
+                stats = last_match_data.get('team_stats') or {}
+                kills_nickname = stats.get('most_kills_nickname', 'N/A')
+                kills = stats.get('most_kills', '0')
+                mvps_nickname = stats.get('most_mvps_nickname', 'N/A')
+                mvps = stats.get('most_mvps', '0')
 
                 embed.add_field(name="💀 Most Kills", value=f"{kills_nickname}: **{kills}**", inline=True)
                 embed.add_field(name="⭐ Most MVPs", value=f"{mvps_nickname}: **{mvps}**", inline=True)

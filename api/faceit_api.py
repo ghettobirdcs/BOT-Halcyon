@@ -27,8 +27,6 @@ class FaceitAPI:
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Accept": "application/json",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-            "Connection": "keep-alive"
         }
 
         # Initialize as None; we create it inside an async context later
@@ -44,7 +42,7 @@ class FaceitAPI:
     async def _make_request(self, endpoint: str, retries: int = 3) -> Optional[dict]:
         """Make an async GET request to the FACEIT API"""
         session = await self._get_session()
-        url = f"{self.base_url}{endpoint}"
+        url = f"{self.base_url}/{endpoint}"
         
         for attempt in range(retries):
             try:
@@ -72,7 +70,7 @@ class FaceitAPI:
             except Exception as e:
                 print(f"Request error: {str(e)}")
 
-            await asyncio.sleep(1.5 + attempt)
+            await asyncio.sleep(1 + attempt)
 
         return None
     
@@ -84,17 +82,17 @@ class FaceitAPI:
     async def get_team_matches(self, team_id: str, url_type: str) -> list:
         """Get recent match history for a team"""
         page = 1
-        max_pages = 5  # Check up to 5 pages (500 results)
+        limit = 100  # Max results per page
+        max_pages = 5  # Check up to 5 pages
         team_matches = []  # Collect ALL team matches first
     
         while page <= max_pages:
-            endpoint = f"/championships/{self.season_id}/matches?type={url_type}&limit=100&offset={(page-1)*100}"
-            print(self.season_id)
+            endpoint = f"championships/{self.season_id}/matches?type={url_type}&limit={limit}&offset={(page-1)*100}"
             data = await self._make_request(endpoint)
     
             if not data or not data.get('items'):
                 break
-    
+
             # check each match to see if your team is playing
             for match in data['items']:
                 teams = match.get('teams', {})
@@ -111,7 +109,8 @@ class FaceitAPI:
 
                 opponent = faction2 if is_faction1 else faction1
                 opponent_name = opponent.get('name', 'Unknown')
-                opponent_avatar = opponent.get('avatar')
+
+                opponent_avatar = opponent.get('avatar', None)
 
                 faceit_url = (match.get('faceit_url') or "").replace("{lang}", "en")
 
@@ -124,12 +123,19 @@ class FaceitAPI:
                 # TODO: faction1/2.get('roster').get('game_skill_level')?
                 if url_type == "past":
                     results = match.get('results', {}).get('score', {})
+                    team_score = results.get('faction1' if is_faction1 else 'faction2', 0)
+                    opponent_score = results.get('faction2' if is_faction1 else 'faction1', 0)
+                    map_pick = match.get('voting', {}).get('map', {}).get('pick')
+
+                    if isinstance(map_pick, list):
+                        map_pick = map_pick[0] if map_pick else None
+
                     result.update({
                         'finished_at': match.get('finished_at'),
-                        'team_score': results.get('faction1' if is_faction1 else 'faction2', 0),
-                        'opponent_score': results.get('faction2' if is_faction1 else 'faction1', 0),
-                        'map_pick': match.get('voting', {}).get('map', {}).get('pick'),
-                        'team_stats': await self._extract_team_stats(match.get('match_id'), team_id)
+                        'team_score': team_score,
+                        'opponent_score': opponent_score,
+                        'map_pick': map_pick,
+                        'match_id': match.get('match_id')
                     })
                 else:
                     result.update({
@@ -139,15 +145,12 @@ class FaceitAPI:
 
                 team_matches.append(result)
 
-                # Rate limiting protection
-                await asyncio.sleep(0.5)
-
             page += 1
 
         if url_type == "past":
-            team_matches.sort(key=lambda x: x['finished_at'])
+            team_matches.sort(key=lambda x: x.get('finished_at') or 0)
         else:
-            team_matches.sort(key=lambda x: x['scheduled_at'])
+            team_matches.sort(key=lambda x: x.get('scheduled_at') or 0)
 
         return team_matches
 
@@ -157,8 +160,26 @@ class FaceitAPI:
 
     async def get_team_last_match(self, team_id: str):
         matches = await self.get_team_matches(team_id, "past")
-        return matches[-1] if matches else None
     
+        if not matches:
+            return None
+
+        last_match = matches[-1]
+
+        team_score = last_match.get('team_score')
+        opponent_score = last_match.get('opponent_score')
+        match_id = last_match.get('match_id')
+
+        # If match was a bye, stats page doesn't exist
+        is_bye = (team_score, opponent_score) in [(1, 0), (0,1)]
+
+        if match_id and not is_bye:
+            team_stats = await self._extract_team_stats(match_id, team_id)
+            last_match['team_stats'] = team_stats
+        else:
+            last_match['team_stats'] = None
+
+        return last_match
 
     # -----------------------------
     # PLAYER STATS
@@ -166,7 +187,7 @@ class FaceitAPI:
 
     async def get_player_stats(self, player_name: str) -> Optional[dict]:
         """Get stats for a specific player by FACEIT username"""
-        endpoint = f"/players?nickname={player_name}"
+        endpoint = f"players?nickname={player_name}"
         player_data = await self._make_request(endpoint)
         
         if not player_data:
@@ -178,7 +199,7 @@ class FaceitAPI:
         player_id = player_data.get('player_id')
 
         # Get detailed player stats for CS2
-        stats_endpoint = f"/players/{player_id}/stats/cs2"
+        stats_endpoint = f"players/{player_id}/stats/cs2"
         stats_data = await self._make_request(stats_endpoint)
 
         result = {
@@ -211,12 +232,12 @@ class FaceitAPI:
     # MATCH STATS
     # -----------------------------
 
-    async def _extract_team_stats(self, match_id: dict, team_id: str) -> Optional[dict]:
+    async def _extract_team_stats(self, match_id: str, team_id: str) -> Optional[dict]:
         """Extract team statistics from a match object"""
         if not match_id:
             return None
 
-        endpoint = f"/matches/{match_id}/stats"
+        endpoint = f"matches/{match_id}/stats"
         match_data = await self._make_request(endpoint)
 
         if not match_data:
